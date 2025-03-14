@@ -763,7 +763,7 @@ func compareTypes(t1, t2 *Type) int {
 		if c := compareTypeLists(t1.Types(), t2.Types()); c != 0 {
 			return c
 		}
-	case t1.flags&(TypeFlagsEnumLiteral|TypeFlagsUniqueESSymbol) != 0:
+	case t1.flags&(TypeFlagsEnum|TypeFlagsEnumLiteral|TypeFlagsUniqueESSymbol) != 0:
 		// Enum members are ordered by their symbol (and thus their declaration order).
 		if c := t1.checker.compareSymbols(t1.symbol, t2.symbol); c != 0 {
 			return c
@@ -836,9 +836,11 @@ func compareTypes(t1, t2 *Type) int {
 }
 
 func getSortOrderFlags(t *Type) int {
-	// We want enum literal and computed values to be ordered by their declarations, so we merge TypeFlagsEnum into
-	// TypeFlagsEnumLiteral and clear TypeFlagsEnum.
-	return int((t.flags&TypeFlagsEnum)>>1 | t.flags&^TypeFlagsEnum)
+	// Return TypeFlagsEnum for all enum-like unit types (they'll be sorted by their symbols)
+	if t.flags&(TypeFlagsEnumLiteral|TypeFlagsEnum) != 0 && t.flags&TypeFlagsUnion == 0 {
+		return int(TypeFlagsEnum)
+	}
+	return int(t.flags)
 }
 
 func compareTypeNames(t1, t2 *Type) int {
@@ -1271,50 +1273,6 @@ func getThisParameter(signature *ast.Node) *ast.Node {
 // Deprecated: use ast.IsThisParameter
 func parameterIsThisKeyword(parameter *ast.Node) bool {
 	return ast.IsThisParameter(parameter)
-}
-
-func getExtendsTypeNode(node *ast.Node) *ast.Node {
-	return core.FirstOrNil(getExtendsTypeNodes(node))
-}
-
-func getExtendsTypeNodes(node *ast.Node) []*ast.Node {
-	return getHeritageTypeNodes(node, ast.KindExtendsKeyword)
-}
-
-func getImplementsTypeNodes(node *ast.Node) []*ast.Node {
-	return getHeritageTypeNodes(node, ast.KindImplementsKeyword)
-}
-
-func getHeritageTypeNodes(node *ast.Node, kind ast.Kind) []*ast.Node {
-	clause := getHeritageClause(node, kind)
-	if clause != nil {
-		return clause.AsHeritageClause().Types.Nodes
-	}
-	return nil
-}
-
-func getHeritageClause(node *ast.Node, kind ast.Kind) *ast.Node {
-	clauses := getHeritageClauses(node)
-	if clauses != nil {
-		for _, clause := range clauses.Nodes {
-			if clause.AsHeritageClause().Token == kind {
-				return clause
-			}
-		}
-	}
-	return nil
-}
-
-func getHeritageClauses(node *ast.Node) *ast.NodeList {
-	switch node.Kind {
-	case ast.KindClassDeclaration:
-		return node.AsClassDeclaration().HeritageClauses
-	case ast.KindClassExpression:
-		return node.AsClassExpression().HeritageClauses
-	case ast.KindInterfaceDeclaration:
-		return node.AsInterfaceDeclaration().HeritageClauses
-	}
-	return nil
 }
 
 func isObjectOrArrayLiteralType(t *Type) bool {
