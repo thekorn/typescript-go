@@ -6,6 +6,7 @@ import (
 	"github.com/microsoft/typescript-go/internal/ast"
 	"github.com/microsoft/typescript-go/internal/core"
 	"github.com/microsoft/typescript-go/internal/jsnum"
+	"github.com/microsoft/typescript-go/internal/printer"
 	"github.com/microsoft/typescript-go/internal/scanner"
 )
 
@@ -68,6 +69,9 @@ func (c *Checker) TypeToString(t *Type) string {
 
 func (c *Checker) typeToStringEx(t *Type, enclosingDeclaration *ast.Node, flags TypeFormatFlags) string {
 	p := c.newPrinter(flags)
+	if flags&TypeFormatFlagsNoTypeReduction == 0 {
+		t = c.getReducedType(t)
+	}
 	p.printType(t)
 	return p.string()
 }
@@ -235,7 +239,7 @@ func (p *Printer) printValue(value any) {
 
 func (p *Printer) printStringLiteral(s string) {
 	p.print("\"")
-	p.print(s)
+	p.print(printer.EscapeString(s, '"'))
 	p.print("\"")
 }
 
